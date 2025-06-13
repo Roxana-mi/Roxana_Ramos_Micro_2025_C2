@@ -1,0 +1,137 @@
+#include <WiFi.h>
+#include <PubSubClient.h>
+
+const char* ssid = "TU_SSID";
+const char* password = "TU_PASSWORD";
+const char* mqtt_server = "broker.hivemq.com";  // o tu IP local
+
+WiFiClient espClient;
+PubSubClient client(espClient);
+
+
+const int botonPP = 13;       // Botón físico
+const int ledLampara = 26;    // Lámpara (LED)
+const int buzzer = 27;        // Buzzer
+
+enum EstadoPuerta { CERRADA, ABIERTA, CERRANDO, DESCONOCIDA };
+EstadoPuerta estadoActual = DESCONOCIDA;
+
+
+unsigned long tiempoAnterior = 0;
+bool ledEncendido = false;
+
+
+bool botonPresionado = false;
+unsigned long ultimoCambioBoton = 0;
+
+
+void conectarWiFi() {
+  Serial.print("Conectando a WiFi...");
+  WiFi.begin(ssid, password);
+  while (WiFi.status() != WL_CONNECTED) {
+    delay(500);
+    Serial.print(".");
+  }
+  Serial.println("Conectado.");
+}
+
+void reconnectMQTT() {
+  while (!client.connected()) {
+    Serial.print("Conectando a MQTT...");
+    if (client.connect("ESP32_Puerta")) {
+      Serial.println("Conectado.");
+      client.subscribe("comando/puerta");  // Por si quieres recibir comandos remotos
+    } else {
+      Serial.print("Fallo, rc=");
+      Serial.print(client.state());
+      Serial.println(" intentando en 5 segundos...");
+      delay(5000);
+    }
+  }
+}
+
+void callback(char* topic, byte* message, unsigned int length) {
+  // Aquí puedes recibir comandos como "abrir" o "cerrar" por MQTT
+}
+
+void publicarEstado(const char* estado) {
+  client.publish("estado/puerta", estado);
+}
+
+// ======== SETUP ========
+void setup() {
+  Serial.begin(115200);
+  pinMode(botonPP, INPUT_PULLUP);
+  pinMode(ledLampara, OUTPUT);
+  pinMode(buzzer, OUTPUT);
+  digitalWrite(ledLampara, LOW);
+  digitalWrite(buzzer, LOW);
+
+  conectarWiFi();
+  client.setServer(mqtt_server, 1883);
+  client.setCallback(callback);
+}
+
+
+void loop() {
+  if (!client.connected()) reconnectMQTT();
+  client.loop();
+
+  // Leer botón (con antirebote simple)
+  if (millis() - ultimoCambioBoton > 200) {
+    if (digitalRead(botonPP) == LOW && !botonPresionado) {
+      botonPresionado = true;
+      ultimoCambioBoton = millis();
+      
+      // Cambiar estado según lógica
+      switch (estadoActual) {
+        case CERRADA:
+          estadoActual = ABIERTA;
+          publicarEstado("abierta");
+          tone(buzzer, 1000, 200);
+          break;
+        case ABIERTA:
+        case DESCONOCIDA:
+          estadoActual = CERRANDO;
+          publicarEstado("cerrando");
+          tone(buzzer, 500, 200);
+          break;
+        case CERRANDO:
+          estadoActual = CERRADA;
+          publicarEstado("cerrada");
+          tone(buzzer, 1500, 200);
+          break;
+      }
+    } else if (digitalRead(botonPP) == HIGH) {
+      botonPresionado = false;
+    }
+  }
+
+  // Lógica de lámpara
+  unsigned long ahora = millis();
+  switch (estadoActual) {
+    case CERRANDO:
+      if (ahora - tiempoAnterior >= 250) {
+        ledEncendido = !ledEncendido;
+        digitalWrite(ledLampara, ledEncendido);
+        tiempoAnterior = ahora;
+      }
+      break;
+
+    case ABIERTA:
+      digitalWrite(ledLampara, HIGH);
+      break;
+
+    case CERRADA:
+      digitalWrite(ledLampara, LOW);
+      break;
+
+    case DESCONOCIDA:
+      if (ahora - tiempoAnterior >= 500) {
+        ledEncendido = !ledEncendido;
+        digitalWrite(ledLampara, ledEncendido);
+        tiempoAnterior = ahora;
+      }
+      break;
+  }
+}
