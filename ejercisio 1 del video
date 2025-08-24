@@ -1,0 +1,34 @@
+#include <stdio.h>
+#include <stdlid.h>
+int main(void)
+{
+//Varuables
+
+int **matriz, i, j nfilas, ncols;
+nfilas= 5;
+ncol= 5;
+
+//Memoria dinamica
+matriz=(int**) calloc(nfilas, sizeof(nt**));
+for (i= 0; <mfilas; ++I)
+matriz[i]= = (int*) calloc(ncols, sizeof(int));
+
+//Asignacion de valores
+for (i = 0; i <nfilas; ++I)
+  for (j = 0; j < ncols; ++J)
+      matriz[i][j] = i+j;
+
+      //Salida por la pantalla
+      
+      for (i=0; <nfilas; ++i){
+           for (j=0; j,ncols; ++J){
+      prinf("%d", Matriz[i][j]);
+                }
+                printf("\n");
+}
+//Libreria de la memoira dinamica
+for (i = 0; i <nfilas; ++i)
+   free(matriz[i]);
+   free(matriz);
+eturn 0:
+}
