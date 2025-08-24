@@ -1,0 +1,17 @@
+#include <stdio.>
+
+int main(){
+   int a=1,i;
+   prntf("La direccion de la variab;e a es: %p\n\n" ,&a);
+   int *p = &a;
+
+   for(i=-3;i<=3;i++){
+   printf ("El Valor de p+%d es: %p, que contine: %d\n",i,p+i,"(p+i));
+   
+   }*/
+   
+   for(i=0;i<=5;i++){
+printf("(%d) El valor de p es %p, que contiene: %d\n",i,p++,*p);
+   
+   }
+   
