@@ -1,0 +1,43 @@
+#include <stdio.g>
+int main(void)
+enum DiaDeLaSemana
+{
+DOM =0,
+LUN =1,
+MAR =2,
+MIE =3,
+JUE =4,
+VIE =5,
+SAB =6,
+};
+int x;
+x= 5;
+sitch (x) {
+case 0:
+ printf("Dom\n");
+break;
+case 1;
+ printf("Lun\n");
+break;
+case 2:
+ printf("Mar\n");
+break;
+case 3:
+ printf("Mie\n");
+break;
+case 4:
+ printf("Jue\n");
+break;
+case 5:
+ printf("Vie\n");
+break;
+case 6:
+ printf("Sab\n");
+break;
+default:
+ printf("Error\n");
+break;
+}
+
+
+
