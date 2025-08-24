@@ -1,0 +1,87 @@
+#include <stdio.h>
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
+#include "freertos/timers.h"
+#include "esp_wifi.h"
+#include "esp_event.h"
+#include "esp_log.h"
+#include "nvs_flash.h"
+#include "mqtt_client.h"
+
+#define WIFI_SSID "tu_ssid"
+#define WIFI_PASS "tu_password"
+#define MQTT_BROKER_URI "mqtt://broker.emqx.io"
+
+static const char *TAG = "MQTT5_APP";
+static TimerHandle_t periodic_timer;
+
+esp_mqtt_client_handle_t client = NULL;
+
+static void mqtt_event_handler(void *handler_args, esp_event_base_t base, int32_t event_id, void *event_data) {
+    esp_mqtt_event_handle_t event = event_data;
+    switch (event->event_id) {
+        case MQTT_EVENT_CONNECTED:
+            ESP_LOGI(TAG, "Conectado al broker MQTT");
+            break;
+        case MQTT_EVENT_DISCONNECTED:
+            ESP_LOGI(TAG, "Desconectado del broker");
+            break;
+        default:
+            break;
+    }
+}
+
+static void timer_callback(TimerHandle_t xTimer) {
+    if (client) {
+        esp_mqtt5_publish_property_config_t props = {
+            .payload_format_indicator = true,
+            .message_expiry_interval = 1000
+        };
+
+        esp_mqtt_client_publish_with_props(client, "/esp32/data", "Hello from ESP32", 0, 1, 0, &props);
+        ESP_LOGI(TAG, "Mensaje MQTT5 publicado");
+    }
+}
+
+static void wifi_init_sta(void) {
+    esp_netif_init();
+    esp_event_loop_create_default();
+    esp_netif_create_default_wifi_sta();
+
+    wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT();
+    esp_wifi_init(&cfg);
+
+    wifi_config_t wifi_config = {
+        .sta = {
+            .ssid = WIFI_SSID,
+            .password = WIFI_PASS
+        },
+    };
+
+    esp_wifi_set_mode(WIFI_MODE_STA);
+    esp_wifi_set_config(ESP_IF_WIFI_STA, &wifi_config);
+    esp_wifi_start();
+    ESP_LOGI(TAG, "Wi-Fi inicializado en modo estación");
+}
+
+void app_main(void) {
+    esp_err_t ret = nvs_flash_init();
+    if (ret == ESP_ERR_NVS_NO_FREE_PAGES || ret == ESP_ERR_NVS_NEW_VERSION_FOUND) {
+        nvs_flash_erase();
+        nvs_flash_init();
+    }
+
+    wifi_init_sta();
+
+    esp_mqtt_client_config_t mqtt_cfg = {
+        .broker.address.uri = MQTT_BROKER_URI,
+        .protocol_ver = MQTT_PROTOCOL_V_5,
+    };
+
+    client = esp_mqtt_client_init(&mqtt_cfg);
+    esp_mqtt_client_register_event(client, ESP_EVENT_ANY_ID, mqtt_event_handler, NULL);
+    esp_mqtt_client_start(client);
+
+    periodic_timer = xTimerCreate("periodic_timer", pdMS_TO_TICKS(50), pdTRUE, NULL, timer_callback);
+    xTimerStart(periodic_timer, 0);
+}
